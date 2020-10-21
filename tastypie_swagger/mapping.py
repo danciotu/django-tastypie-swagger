@@ -1,17 +1,22 @@
+from .utils import trailing_slash_or_none, urljoin_forced
+from tastypie import fields
 import datetime
 import logging
 
-from django.db.models.sql.constants import QUERY_TERMS
+# from django.db.models.sql.constants import QUERY_TERMS
+QUERY_TERMS = {
+    'exact', 'iexact', 'contains', 'icontains', 'gt', 'gte', 'lt', 'lte', 'in',
+    'startswith', 'istartswith', 'endswith', 'iendswith', 'range', 'year',
+    'month', 'day', 'week_day', 'hour', 'minute', 'second', 'isnull', 'search',
+    'regex', 'iregex',
+}
+
 
 try:
     from django.utils.encoding import force_text
 except ImportError:
-    from django.utils.encoding import force_text as force_text
+    from django.utils.encoding import force_unicode as force_text
 
-
-from tastypie import fields
-
-from .utils import trailing_slash_or_none, urljoin_forced
 
 logger = logging.getLogger(__name__)
 # Ignored POST fields
@@ -33,7 +38,7 @@ class ResourceSwaggerMapping(object):
     http://django-tastypie.readthedocs.org/en/latest/resources.html
     https://github.com/wordnik/swagger-core/wiki/API-Declaration
     """
-    WRITE_ACTION_IGNORED_FIELDS = ['id', 'resource_uri',]
+    WRITE_ACTION_IGNORED_FIELDS = ['id', 'resource_uri', ]
 
     # Default summary strings for operations
     OPERATION_SUMMARIES = {
@@ -93,7 +98,7 @@ class ResourceSwaggerMapping(object):
         Get a basic summary string for a single operation
         """
         key = '%s-%s' % (method.lower(), detail and 'detail' or 'list')
-        plural = not detail and method is 'get'
+        plural = not detail and method == 'get'
         verbose_name = self.get_resource_verbose_name(plural=plural)
         summary = self.OPERATION_SUMMARIES.get(key, '')
         if summary:
@@ -114,7 +119,7 @@ class ResourceSwaggerMapping(object):
         else:
             raise AttributeError('Resource %(resource)s has neither get_resource_list_uri nor get_resource_uri' % {'resource': self.resource})
 
-    def build_parameter(self, paramType='body', name='', dataType='', required=True, description='', allowed_values = None):
+    def build_parameter(self, paramType='body', name='', dataType='', required=True, description='', allowed_values=None):
         parameter = {
             'paramType': paramType,
             'name': name,
@@ -122,7 +127,6 @@ class ResourceSwaggerMapping(object):
             'required': required,
             'description': description,
         }
-
 
         # TODO make use of this to Implement the allowable_values of swagger
         # (https://github.com/wordnik/swagger-core/wiki/Datatypes) at the field level.
@@ -154,17 +158,17 @@ class ResourceSwaggerMapping(object):
 
     def build_parameters_from_ordering(self):
         values = []
-        [values.extend([field,"-%s"%field]) for field in self.schema['ordering']]
+        [values.extend([field, "-%s" % field]) for field in self.schema['ordering']]
         return {
             'paramType': "query",
             'name': "order_by",
             'dataType': "String",
             'required': False,
-            'description': unicode("Orders the result set based on the selection. "
-                                   "Ascending order by default, prepending the '-' "
-                                   "sign change the sorting order to descending"),
+            'description': ("Orders the result set based on the selection. "
+                            "Ascending order by default, prepending the '-' "
+                            "sign change the sorting order to descending"),
             'allowableValues': {
-                'valueType' : "LIST",
+                'valueType': "LIST",
                 'values': values
 
             }
@@ -201,30 +205,16 @@ class ResourceSwaggerMapping(object):
                         if field == ALL:
                             has_related_resource = False
                         else:
-                            has_related_resource = hasattr(self.resource.fields[name], 'get_related_resource')
+                            has_related_resource = hasattr(self.resource.fields.get(name), 'get_related_resource')
 
                         if not has_related_resource:
-                            #This code has been mostly sucked from the tastypie lib
-                            if getattr(self.resource._meta, 'queryset', None) is not None:
-                                # Get the possible query terms from the current QuerySet.
-                                if hasattr(self.resource._meta.queryset.query.query_terms, 'keys'):
-                                    # Django 1.4 & below compatibility.
-                                    field = self.resource._meta.queryset.query.query_terms.keys()
-                                else:
-                                    # Django 1.5+.
-                                    field = self.resource._meta.queryset.query.query_terms
-                            else:
-                                if hasattr(QUERY_TERMS, 'keys'):
-                                    # Django 1.4 & below compatibility.
-                                    field = QUERY_TERMS.keys()
-                                else:
-                                    # Django 1.5+.
-                                    field = QUERY_TERMS
+                            field = QUERY_TERMS
 
-                        else: # Show all params from related model
+                        else:  # Show all params from related model
                             # Add a subset of filter only foreign-key compatible on the relation itself.
                             # We assume foreign keys are only int based.
-                            field = ['gt', 'in', 'gte', 'lt', 'lte', 'exact'] # TODO This could be extended by checking the actual type of the relational field, but afaik it's also an issue on tastypie.
+                            # TODO This could be extended by checking the actual type of the relational field, but afaik it's also an issue on tastypie.
+                            field = ['gt', 'in', 'gte', 'lt', 'lte', 'exact']
                             related_resource = self.resource.fields[name].get_related_resource(None)
                             related_mapping = ResourceSwaggerMapping(related_resource)
 
@@ -232,7 +222,8 @@ class ResourceSwaggerMapping(object):
 
                     if isinstance(field, (list, tuple, set)):
                         # Skip if this is an incorrect filter
-                        if name not in self.schema['fields']: continue
+                        if name not in self.schema['fields']:
+                            continue
 
                         schema_field = self.schema['fields'][name]
 
@@ -250,7 +241,7 @@ class ResourceSwaggerMapping(object):
                                     paramType="query",
                                     name="%s%s" % (prefix, name),
                                     dataType=dataType,
-                                    required = False,
+                                    required=False,
                                     description=description,
                                 ))
                             else:
@@ -258,7 +249,7 @@ class ResourceSwaggerMapping(object):
                                     paramType="query",
                                     name="%s%s__%s" % (prefix, name, query),
                                     dataType=dataType,
-                                    required = False,
+                                    required=False,
                                     description=force_text(schema_field['help_text']),
                                 ))
 
@@ -268,7 +259,7 @@ class ResourceSwaggerMapping(object):
         return self.build_parameter(
             name=self.resource_name,
             dataType="%s_%s" % (self.resource_name, method) if not method == "get" else self.resource_name,
-            required = True
+            required=True
         )
 
     def _detail_uri_name(self):
@@ -281,9 +272,9 @@ class ResourceSwaggerMapping(object):
         parameters = []
         if resource_type == "view":
             parameters.append(self.build_parameter(paramType='path',
-                              name=self._detail_uri_name(),
-                              dataType=self.resource_pk_type,
-                              description='Primary key of resource'))
+                                                   name=self._detail_uri_name(),
+                                                   dataType=self.resource_pk_type,
+                                                   description='Primary key of resource'))
         for name, field in fields.items():
             parameters.append(self.build_parameter(
                 paramType=field.get("param_type", "query"),
@@ -304,9 +295,7 @@ class ResourceSwaggerMapping(object):
                                   name=name,
                                   dataType=field['dataType'],
                                   required=field['required'],
-                                  description=unicode(field['description'])
-                                  ))
-
+                                  description=field['description']))
 
         return parameters
 
@@ -396,7 +385,7 @@ class ResourceSwaggerMapping(object):
             identifier = self._detail_uri_name()
             for extra_action in self.resource._meta.extra_actions:
                 extra_api = {
-                    'path': "%s{%s}/%s/" % (self.get_resource_base_uri(), identifier , extra_action.get('name')),
+                    'path': "%s{%s}/%s/" % (self.get_resource_base_uri(), identifier, extra_action.get('name')),
                     'operations': []
                 }
 
@@ -418,7 +407,7 @@ class ResourceSwaggerMapping(object):
             name: {
                 'type': type,
                 'description': description,
-                'required':required
+                'required': required
             }
         }
         if type == 'List':
@@ -433,7 +422,7 @@ class ResourceSwaggerMapping(object):
             if name in excludes:
                 continue
             # Exclude fields from custom put / post object definition
-            if method in ['post','put']:
+            if method in ['post', 'put']:
                 if name in self.WRITE_ACTION_IGNORED_FIELDS:
                     continue
                 if field.get('readonly'):
@@ -445,13 +434,13 @@ class ResourceSwaggerMapping(object):
                 field['default'] = field.get('default').isoformat()
 
             properties.update(self.build_property(
-                    name,
-                    field.get('type'),
-                    # note: 'help_text' is a Django proxy which must be wrapped
-                    # in unicode *specifically* to get the actual help text.
-                    force_text(field.get('help_text', '')),
-                    field.get('nullable')
-                )
+                name,
+                field.get('type'),
+                # note: 'help_text' is a Django proxy which must be wrapped
+                # in unicode *specifically* to get the actual help text.
+                force_text(field.get('help_text', '')),
+                field.get('nullable')
+            )
             )
         return properties
 
@@ -462,7 +451,6 @@ class ResourceSwaggerMapping(object):
                 'id': id
             }
         }
-
 
     def build_list_models_and_properties(self):
         models = {}
@@ -567,9 +555,9 @@ class ResourceSwaggerMapping(object):
                 if "model" in extra_action:
                     models.update(
                         self.build_model(
-                        resource_name=extra_action['model']['id'],
-                        properties=extra_action['model']['properties'],
-                        id=extra_action['model']['id']
+                            resource_name=extra_action['model']['id'],
+                            properties=extra_action['model']['properties'],
+                            id=extra_action['model']['id']
                         )
                     )
 
