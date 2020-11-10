@@ -26,7 +26,8 @@ class TastypieApiMixin(object):
 
             tastypie_api_module = self.kwargs.get('tastypie_api_module', None)
             if not tastypie_api_module:
-                raise ImproperlyConfigured("tastypie_api_module must be defined as an extra parameters in urls.py with its value being a path to a tastypie.api.Api instance.")
+                raise ImproperlyConfigured(
+                    "tastypie_api_module must be defined as an extra parameters in urls.py with its value being a path to a tastypie.api.Api instance.")
 
             if isinstance(tastypie_api_module, tastypie.api.Api):
                 tastypie_api = tastypie_api_module
@@ -35,9 +36,11 @@ class TastypieApiMixin(object):
                 try:
                     tastypie_api = getattr(sys.modules[path], attr, None)
                 except KeyError:
-                    raise ImproperlyConfigured("%s is not a valid python path" % path)
+                    raise ImproperlyConfigured(
+                        "%s is not a valid python path" % path)
                 if not tastypie_api:
-                    raise ImproperlyConfigured("%s is not a valid tastypie.api.Api instance" % tastypie_api_module)
+                    raise ImproperlyConfigured(
+                        "%s is not a valid tastypie.api.Api instance" % tastypie_api_module)
 
             self._tastypie_api = tastypie_api
 
@@ -50,7 +53,8 @@ class SwaggerApiDataMixin(object):
     """
 
     def get_context_data(self, *args, **kwargs):
-        context = super(SwaggerApiDataMixin, self).get_context_data(*args, **kwargs)
+        context = super(SwaggerApiDataMixin, self)\
+            .get_context_data(*args, **kwargs)
         context.update({
             'apiVersion': self.kwargs.get('version', 'Unknown'),
             'swaggerVersion': '1.2',
@@ -88,11 +92,13 @@ class SwaggerView(TastypieApiMixin, TemplateView):
     Display the swagger-ui page
     """
 
-    template_name = 'tastypie_swagger/index.html'
+    # template_name = 'tastypie_swagger/index.html'
+    template_name = 'tastypie_swagger/index-2.2.10.html'
 
     def get_context_data(self, **kwargs):
         context = super(SwaggerView, self).get_context_data(**kwargs)
-        context['discovery_url'] = reverse('%s:resources' % self.kwargs.get('namespace'))
+        context['discovery_url'] = reverse(
+            '%s:resources' % self.kwargs.get('namespace'))
         return context
 
 
@@ -107,7 +113,12 @@ class ResourcesView(TastypieApiMixin, SwaggerApiDataMixin, JSONView):
         context = super(ResourcesView, self).get_context_data(*args, **kwargs)
 
         # Construct schema endpoints from resources
-        apis = [{'path': '/%s' % name} for name in sorted(self.tastypie_api._registry.keys())]
+        apis = []
+        for name in sorted(self.tastypie_api._registry.keys()):
+            api = {'path': '/%s' % name}
+            if hasattr(self.tastypie_api._registry[name]._meta, 'resource_description'):
+                api['description'] = self.tastypie_api._registry[name]._meta.resource_description
+            apis.append(api)
         context.update({
             'basePath': self.request.build_absolute_uri(reverse('%s:schema' % self.kwargs.get('namespace'))).rstrip('/'),
             'apis': apis,
