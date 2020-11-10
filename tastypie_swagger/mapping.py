@@ -332,6 +332,8 @@ class ResourceSwaggerMapping(object):
             raise LookupError("\"name\" is a required field in extra_actions.")
         return {
             'summary': extra_action.get("summary", ""),
+            'description': extra_action.get("description", ""),
+            'deprecated': extra_action.get("deprecated", False),
             'httpMethod': extra_action.get('http_method', "get").upper(),
             'parameters': self.build_parameters_from_extra_action(
                 method=extra_action.get('http_method'),
