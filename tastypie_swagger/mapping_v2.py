@@ -140,6 +140,7 @@ class ResourceSwagger2Mapping(ResourceSwaggerMapping):
                 'name': name,
                 'in': param_in,
                 'required': in_p.get('required'),
+                'description': in_p.get('description'),
             }
             kind = in_p.get('dataType')
             if method != 'get' and kind in models:
