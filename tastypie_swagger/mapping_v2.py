@@ -79,7 +79,10 @@ class ResourceSwagger2Mapping(ResourceSwaggerMapping):
             if tag_name not in api_tagnames:
                 api_tagnames.append(tag_name)
                 api_tags.append(tag)
-            path = paths[uri] = {}
+
+            path_already_exists = uri in paths
+            path = paths[uri] if path_already_exists else {}
+
             for op in api.get('operations'):
                 responseCls = op.get('responseClass')
                 method = op.get('httpMethod').lower()
@@ -108,6 +111,11 @@ class ResourceSwagger2Mapping(ResourceSwaggerMapping):
                 op_params = self.map_parameters(
                     method, uri, op.get('parameters'), models)
                 path[method]['parameters'] = op_params
+
+            if not path_already_exists:
+                paths[uri] = path
+            else:
+                paths[uri] = {**paths[uri], **path}
         # build definitions
         for name, model in iteritems(models):
             model.pop('id')
@@ -116,9 +124,14 @@ class ResourceSwagger2Mapping(ResourceSwaggerMapping):
             defs[self.get_model_ref_name(name)] = model
             # need a 'type' on every level according to JsonSchema specs
             defs[self.get_model_ref_name(name)]['type'] = 'object'
-        # print(paths)
-        # print(defs)
-        # print(api_tags)
+
+        # if self.resource_name == 'article':
+        #     print(len(paths))
+        #     for p, v in paths.items():
+        #         print(p, v)
+        #     print(defs)
+        #     print(api_tags)
+
         return common_path, paths, defs, api_tags
 
     def map_parameters(self, method, path, in_params, models):
