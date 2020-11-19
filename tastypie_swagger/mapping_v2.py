@@ -94,14 +94,15 @@ class ResourceSwagger2Mapping(ResourceSwaggerMapping):
                     # requires it
                     # (https://github.com/unaguil/sphinx-swagger/issues/5)
                     "tags": [tag_name],
-                    "responses": {
-                        "200": {
-                            "description": "%s object" % responseCls,
-                            "schema": {
-                                "$ref": self.get_model_ref(responseCls),
-                            }
-                        }
-                    }
+                    "responses": {}
+                    # "responses": {
+                    #     "200": {
+                    #         "description": "%s object" % responseCls,
+                    #         "schema": {
+                    #             "$ref": self.get_model_ref(responseCls),
+                    #         }
+                    #     }
+                    # }
                 }
                 # add optional attributes
                 if self.resource.__doc__ is not None:
